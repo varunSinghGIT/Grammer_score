@@ -1,137 +1,182 @@
-# Grammer_score
-Grammar Score Prediction from Audio
-This project predicts grammar scores from audio recordings using a combination of acoustic features and automated grammar checking. It leverages speech-to-text transcription, grammar error detection, and deep learning to estimate grammatical proficiency.
+# Spoken Language Grammar Scoring Model
 
-Features
-Audio Feature Extraction: MFCC (Mel-Frequency Cepstral Coefficients) extraction using Librosa.
+## Project Overview
+This project implements an automated system for scoring grammar in spoken language. It combines audio feature extraction with speech recognition to transcribe audio and evaluate grammatical accuracy. The model produces a grammar score between 0-5 for audio recordings.
 
-Speech Recognition: Whisper ASR model for transcribing audio to text.
+## Table of Contents
+- [Features](#features)
+- [Dataset](#dataset)
+- [Installation](#installation)
+- [Project Structure](#project-structure)
+- [Methodology](#methodology)
+- [Usage](#usage)
+- [Results](#results)
+- [Future Improvements](#future-improvements)
 
-Grammar Analysis: LanguageTool integration to detect grammatical errors.
+## Features
+- Transcribes spoken audio using OpenAI's Whisper ASR model
+- Extracts acoustic features (MFCCs) from audio recordings
+- Detects grammar errors using LanguageTool
+- Predicts grammar quality scores using a neural network
+- Processes both training and test datasets
 
-Neural Network: Keras-based model combining acoustic and grammar features.
+## Dataset
+The project uses the SHL (Spoken Language Health) dataset with the following structure:
+- `audios_train/`: Directory containing training audio WAV files
+- `audios_test/`: Directory containing test audio WAV files  
+- `train.csv`: Training data with filenames and corresponding grammar scores
+- `sample_submission.csv`: Template for test predictions
 
-Scalable Pipeline: Full workflow from raw audio to predicted scores.
+## Installation
 
-Installation
-Clone the repository:
+```bash
+# Clone the repository
+git clone https://github.com/your-username/spoken-language-grammar-scoring.git
+cd spoken-language-grammar-scoring
 
-bash
-Copy
-git clone https://github.com/yourusername/grammar-score-prediction.git
-cd grammar-score-prediction
-Install dependencies:
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-bash
-Copy
+# Install dependencies
 pip install -r requirements.txt
-requirements.txt (example):
+```
 
-Copy
-tensorflow>=2.10
-librosa==0.10.0
-pandas==1.5.3
-whisper-openai==1.1.10
-language-tool-python==2.7.1
-scikit-learn==1.2.2
-tqdm==4.65.0
-Usage
-Data Preparation
-Place your dataset in the following structure:
+### Requirements
+- Python 3.8+
+- TensorFlow 2.x
+- Librosa
+- Whisper
+- Language-tool-python
+- NumPy
+- Pandas
+- scikit-learn
+- tqdm
 
-Copy
-dataset/
-├── audios_train/   # Training audio files (.wav)
-├── audios_test/    # Test audio files (.wav)
-├── train.csv       # Training metadata with 'filename' and 'grammar_score'
-└── sample_submission.csv  # Submission template
-Training
-python
-Copy
-# Update paths in the script if needed
-AUDIO_DIR = 'path/to/audios_train'
-train_csv = pd.read_csv('path/to/train.csv')
+## Project Structure
+```
+spoken-language-grammar-scoring/
+├── model/
+│   ├── grammar_score_model.h5    # Trained model
+│   └── scaler.pkl                # Feature scaler
+├── data/                         # Dataset paths (configured in code)
+├── src/
+│   ├── main.py                   # Main script
+│   ├── feature_extraction.py     # Feature extraction functions
+│   ├── model.py                  # Model definition
+│   └── utils.py                  # Utility functions
+├── requirements.txt              # Dependencies
+└── README.md                     # This file
+```
 
-# Run the full pipeline:
-python train.py
-Prediction
-python
-Copy
-# After training, predict on test data:
-TEST_AUDIO_DIR = 'path/to/audios_test'
-python predict.py
-Model Architecture
-A neural network combining acoustic and grammatical features:
+## Methodology
 
-python
-Copy
-Model: "model"
-_________________________________________________________________
- Layer (type)                Output Shape              Param #   
-=================================================================
- input_1 (InputLayer)        [(None, 15)]              0         
-                                                                 
- dense (Dense)               (None, 128)               2048      
-                                                                 
- dropout (Dropout)           (None, 128)               0         
-                                                                 
- dense_1 (Dense)             (None, 64)                8256      
-                                                                 
- dense_2 (Dense)             (None, 1)                 65        
-                                                                 
-=================================================================
-Total params: 10,369
-Trainable params: 10,369
-Non-trainable params: 0
-Key Components
-Feature Extraction:
+### 1. Feature Extraction
+The system extracts two types of features:
+- **Audio Features**: 13 MFCCs (Mel-Frequency Cepstral Coefficients) mean values from the audio
+- **Grammar Features**: 
+  - Count of grammar errors detected
+  - Count of unique types of grammar errors
 
-13 MFCC coefficients + temporal statistics
+### 2. Speech Recognition
+OpenAI's Whisper model (small variant) is used to transcribe the audio files into text.
 
-Grammar error counts from LanguageTool
+### 3. Grammar Error Detection
+LanguageTool performs grammar checking on the transcribed text, identifying various types of errors.
 
-Unique grammar rule violations
+### 4. Model Architecture
+A neural network with the following architecture:
+- Input layer: Combined audio features and grammar features
+- Hidden layers:
+  - Dense layer (128 units, ReLU activation)
+  - Dropout (0.3)
+  - Dense layer (64 units, ReLU activation)
+- Output layer: Single unit for regression (grammar score)
 
-Preprocessing:
+### 5. Training
+- Loss function: Mean Squared Error (MSE)
+- Metric: Mean Absolute Error (MAE)
+- Optimizer: Adam
+- Early stopping with patience of 3 epochs
+- Batch size: 16
+- Train/validation split: 80%/20%
 
-Standard scaling of features
+## Usage
 
-Train/validation split (80/20)
+### Training a Model
+```python
+# The main script handles training
+python src/main.py --mode train
+```
 
-Training:
+### Making Predictions
+```python
+# Generate predictions for test data
+python src/main.py --mode predict
+```
 
-Early stopping with 3-epoch patience
+### Using the Model
+```python
+# Example code for using the trained model
+from tensorflow.keras.models import load_model
+import joblib
+import librosa
+import numpy as np
+import whisper
+import language_tool_python
 
-Adam optimizer, MSE loss
+# Load model and scaler
+model = load_model('model/grammar_score_model.h5')
+scaler = joblib.load('model/scaler.pkl')
 
-Batch size: 16, Max epochs: 20
+# Load audio processing tools
+asr_model = whisper.load_model("small")
+tool = language_tool_python.LanguageTool('en-US')
 
-Output Files
-grammar_score_model.h5: Trained Keras model
+# Process a new audio file
+def predict_grammar_score(audio_path):
+    # Extract MFCC features
+    y, sr = librosa.load(audio_path, sr=16000)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    mfcc_mean = np.mean(mfcc, axis=1)
+    
+    # Transcribe and get grammar errors
+    result = asr_model.transcribe(audio_path)
+    text = result['text']
+    matches = tool.check(text)
+    grammar_errors = len(matches)
+    unique_errors = len(set(match.ruleId for match in matches))
+    
+    # Combine features
+    features = np.concatenate([mfcc_mean, [grammar_errors, unique_errors]])
+    
+    # Scale features
+    features_scaled = scaler.transform(features.reshape(1, -1))
+    
+    # Predict score
+    score = model.predict(features_scaled)[0][0]
+    
+    # Clip to valid range
+    return max(0, min(score, 5))
+```
 
-scaler.pkl: Feature scaler for new data
+## Results
+The model achieves:
+- Mean Absolute Error on validation data: [Fill in your best validation MAE]
+- Effective grammar scoring for a variety of speech samples
+- Predictions constrained to the 0-5 score range
 
-sample_submission.csv: Predictions on test set
+## Future Improvements
+- Experiment with larger Whisper models for improved transcription
+- Incorporate additional linguistic features beyond grammar error counts
+- Implement data augmentation for audio to improve model robustness
+- Add support for languages beyond English
+- Explore more complex model architectures (e.g., LSTM for temporal features)
 
-Evaluation
-Metrics tracked during training:
+## License
+[Choose your license]
 
-Mean Absolute Error (MAE)
-
-Mean Squared Error (MSE)
-
-Example training output:
-
-Copy
-Epoch 1/20
-125/125 [==============================] - 2s 8ms/step - loss: 2.4567 - mae: 1.2345 - val_loss: 1.8901 - val_mae: 1.1023
-...
-License
-MIT License. See LICENSE for details.
-
-Acknowledgements
-SHL Dataset (hypothetical example)
-
-OpenAI Whisper for speech recognition
-
-LanguageTool for grammar checking
+## Acknowledgments
+- OpenAI for the Whisper ASR model
+- LanguageTool for grammar checking capabilities
+- The SHL dataset creators
